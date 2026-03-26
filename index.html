@@ -1,37 +1,595 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>LZ Compression Project</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg:        #080c14;
+      --surface:   #0e1623;
+      --surface2:  #141e2e;
+      --border:    #1e2d45;
+      --accent:    #38bdf8;
+      --accent2:   #818cf8;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --mono:      'IBM Plex Mono', monospace;
+      --sans:      'Syne', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: Arial;
-      text-align: center;
-      background: #0f172a;
-      color: white;
-      padding: 50px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.7;
+      overflow-x: hidden;
     }
-    h1 { font-size: 3em; }
-    a {
-      color: #38bdf8;
+
+    /* ── grid backdrop ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 60px 60px;
+      opacity: 0.35;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── noise overlay ── */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.6;
+    }
+
+    main { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 0 24px 80px; }
+
+    /* ── hero ── */
+    .hero {
+      padding: 100px 0 60px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .hero-label {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-size: clamp(2.8rem, 7vw, 5rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      background: linear-gradient(135deg, #fff 30%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 16px;
+    }
+
+    .hero-sub {
+      font-family: var(--mono);
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-bottom: 36px;
+    }
+
+    .hero-links { display: flex; gap: 14px; flex-wrap: wrap; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: 6px;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      font-weight: 600;
       text-decoration: none;
-      font-size: 1.2em;
+      transition: all 0.2s;
+      letter-spacing: 0.03em;
     }
-    .card {
-      background: #1e293b;
-      padding: 20px;
-      border-radius: 12px;
-      display: inline-block;
+
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+    }
+    .btn-primary:hover { background: #7dd3fc; }
+
+    .btn-ghost {
+      border: 1px solid var(--border);
+      color: var(--text);
+      background: var(--surface);
+    }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── sections ── */
+    section { padding: 56px 0; border-bottom: 1px solid var(--border); }
+    section:last-child { border-bottom: none; }
+
+    .section-tag {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent2);
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      font-size: 1.65rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 20px;
+      color: #fff;
+    }
+
+    p { color: #94a3b8; margin-bottom: 14px; font-size: 0.97rem; }
+    p:last-child { margin-bottom: 0; }
+
+    /* ── two-col algo cards ── */
+    .algo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 28px;
+    }
+
+    @media (max-width: 600px) { .algo-grid { grid-template-columns: 1fr; } }
+
+    .algo-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 22px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .algo-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+
+    .algo-card.lz77::before { background: linear-gradient(90deg, var(--accent), transparent); }
+    .algo-card.lzw::before  { background: linear-gradient(90deg, var(--accent2), transparent); }
+
+    .algo-name {
+      font-family: var(--mono);
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+
+    .algo-card.lz77 .algo-name { color: var(--accent); }
+    .algo-card.lzw  .algo-name { color: var(--accent2); }
+
+    /* ── challenge items ── */
+    .challenge-list {
+      list-style: none;
       margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
+
+    .challenge-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-size: 0.93rem;
+      color: #94a3b8;
+    }
+
+    .challenge-list li::before {
+      content: '⚠';
+      font-size: 0.85rem;
+      margin-top: 2px;
+      flex-shrink: 0;
+      color: #f59e0b;
+    }
+
+    /* ── goals ── */
+    .goals-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 28px;
+    }
+
+    @media (max-width: 700px) { .goals-grid { grid-template-columns: 1fr; } }
+
+    .goal-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 22px;
+    }
+
+    .goal-title {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .goal-card.baseline .goal-title { color: var(--accent); }
+    .goal-card.hope     .goal-title { color: var(--accent2); }
+    .goal-card.fallback .goal-title { color: var(--muted); }
+
+    .goal-card ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .goal-card li {
+      font-size: 0.87rem;
+      color: #94a3b8;
+      padding-left: 14px;
+      position: relative;
+      line-height: 1.5;
+    }
+    .goal-card li::before { content: '—'; position: absolute; left: 0; color: var(--muted); }
+
+    /* ── schedule ── */
+    .timeline { margin-top: 28px; position: relative; }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 110px;
+      top: 0; bottom: 0;
+      width: 1px;
+      background: var(--border);
+    }
+
+    .week {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 0 28px;
+      margin-bottom: 32px;
+      position: relative;
+    }
+
+    .week:last-child { margin-bottom: 0; }
+
+    .week-date {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--accent);
+      text-align: right;
+      padding-top: 3px;
+      line-height: 1.4;
+    }
+
+    .week-body {
+      padding-left: 24px;
+      position: relative;
+    }
+
+    .week-body::before {
+      content: '';
+      position: absolute;
+      left: -4px;
+      top: 8px;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
+    }
+
+    .week-body p { margin-bottom: 6px; }
+
+    /* ── platform ── */
+    .platform-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 24px;
+    }
+
+    @media (max-width: 600px) { .platform-grid { grid-template-columns: 1fr; } }
+
+    .platform-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 22px;
+    }
+
+    .platform-card h3 {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .platform-card p { font-size: 0.88rem; }
+
+    /* ── resources ── */
+    .ref-list { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+    .ref-list li {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .ref-label {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--accent);
+      letter-spacing: 0.08em;
+    }
+
+    .ref-list a {
+      font-size: 0.82rem;
+      color: var(--muted);
+      text-decoration: none;
+      word-break: break-all;
+      transition: color 0.15s;
+    }
+    .ref-list a:hover { color: var(--accent); }
+
+    /* ── metric chips ── */
+    .metrics { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+
+    .metric {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 20px;
+      text-align: center;
+      flex: 1;
+      min-width: 120px;
+    }
+
+    .metric-val {
+      font-family: var(--mono);
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: var(--accent);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .metric-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      letter-spacing: 0.08em;
+    }
+
+    /* ── footer ── */
+    .footer {
+      padding: 40px 0 0;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    /* ── fade-in animation ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero, section {
+      animation: fadeUp 0.5s ease both;
+    }
+
+    section:nth-child(1) { animation-delay: 0.05s; }
+    section:nth-child(2) { animation-delay: 0.10s; }
+    section:nth-child(3) { animation-delay: 0.15s; }
+    section:nth-child(4) { animation-delay: 0.20s; }
+    section:nth-child(5) { animation-delay: 0.25s; }
+    section:nth-child(6) { animation-delay: 0.30s; }
   </style>
 </head>
 <body>
-  <h1>LZ Compression</h1>
-  <p>A comparison of LZ77, LZ78, and LZW</p>
+<main>
 
-  <div class="card">
-    <p>📄 <a href="README.md">Read the report</a></p>
-    <p>💻 <a href="https://github.com/jrwoodso/15-418-LZ_Compression">View code</a></p>
+  <!-- ── Hero ── -->
+  <div class="hero">
+    <p class="hero-label">15-418 · Parallel Computer Architecture</p>
+    <h1>LZ Compression</h1>
+    <p class="hero-sub">Jack Woodson &amp; Alex Li</p>
+    <div class="hero-links">
+      <a class="btn btn-primary" href="https://github.com/jrwoodso/15-418-LZ_Compression">⌥ View Code</a>
+      <a class="btn btn-ghost" href="README.md">📄 Read the Report</a>
+    </div>
   </div>
+
+  <!-- ── Summary ── -->
+  <section>
+    <p class="section-tag">Overview</p>
+    <h2>Summary</h2>
+    <p>Will investigate how to parallelize the serial compression algorithms LZ77 and LZW. As we try to parallelize, we would also compare how much performance (compression ratio) we can retain while speeding up the computation. We will target the GHC machine, and extend to the PSC to test scalability on higher core counts.</p>
+    <div class="metrics">
+      <div class="metric"><div class="metric-val">8</div><div class="metric-label">GHC Cores</div></div>
+      <div class="metric"><div class="metric-val">128</div><div class="metric-label">PSC Cores</div></div>
+      <div class="metric"><div class="metric-val">4–6×</div><div class="metric-label">Target Speedup</div></div>
+      <div class="metric"><div class="metric-val">&lt;15%</div><div class="metric-label">Ratio Degradation</div></div>
+    </div>
+  </section>
+
+  <!-- ── Background ── -->
+  <section>
+    <p class="section-tag">Background</p>
+    <h2>LZ Compression</h2>
+    <p>LZ-family compression algorithms form the foundation of widely-used formats like ZIP, PNG, and GIF. Both algorithms exploit repetition in data: rather than storing repeated sequences in full, they encode references to prior occurrences, achieving significant size reduction.</p>
+    <p>There are various different forms of LZ compression and the methods that either benefit speed with low compression ratio, vice versa, or memory consumption. The different LZ compression algorithms that we will be increasing their performance are LZ77 and LZW.</p>
+    <div class="algo-grid">
+      <div class="algo-card lz77">
+        <div class="algo-name">LZ77</div>
+        <p>Makes use of a sliding windows technique to process current data with previously processed / compressed data.</p>
+      </div>
+      <div class="algo-card lzw">
+        <div class="algo-name">LZW</div>
+        <p>Takes in a set of symbols and converts them into a code that takes less file size. These codes and symbols are stored in a dictionary for easy, low cost lookup. If these symbols appear again they are substituted for the short code.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Challenge ── -->
+  <section>
+    <p class="section-tag">Problem Space</p>
+    <h2>Challenge</h2>
+    <p>These algorithms heavily rely on finding code or symbols that are repeated early on in the compression process to be able to shorten the repetition. When working with multiple threads this task becomes increasingly more difficult as they will either create unique codes for these symbols individually taking up too much memory leading to a poor compression ratio, or waiting for threads to load to memory creating specific bottlenecks.</p>
+    <p>Our project will tread this fine line to be able to optimize our code working with multiple threads while maintaining a good compression ratio.</p>
+    <ul class="challenge-list">
+      <li>Memory access characteristics</li>
+      <li>Communication to computation issues</li>
+      <li>Divergent execution and load balancing</li>
+      <li>Compression ratio performance constraints</li>
+    </ul>
+  </section>
+
+  <!-- ── Goals ── -->
+  <section>
+    <p class="section-tag">Deliverables</p>
+    <h2>Goals and Deliverables</h2>
+    <div class="goals-grid">
+      <div class="goal-card baseline">
+        <div class="goal-title">Baseline Success</div>
+        <ul>
+          <li>Working sequential LZ77 and LZW with competitive compression ratios on standard benchmarks</li>
+          <li>Parallel LZ77 with at least 4–6× speedup on 8 GHC cores</li>
+          <li>Less than 15% degradation in compression ratio</li>
+          <li>Extend to LZW and begin PSC scaling exploration</li>
+          <li>Analysis of what limits scaling (memory, synchronization, load imbalance)</li>
+        </ul>
+      </div>
+      <div class="goal-card hope">
+        <div class="goal-title">Hope to Achieve</div>
+        <ul>
+          <li>The project is already quite aggressive; it almost already encompasses what we hope to achieve</li>
+          <li>Alternative pre-initialization strategies</li>
+          <li>Speculative approaches to further improve speed and performance</li>
+        </ul>
+      </div>
+      <div class="goal-card fallback">
+        <div class="goal-title">Fallback</div>
+        <ul>
+          <li>Focus only on LZ77 if work is significantly harder to implement or parallelize</li>
+          <li>Refine parallel LZ77 implementation</li>
+          <li>Deeper analysis on LZ77 with surface-level observations on LZW</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Platform ── -->
+  <section>
+    <p class="section-tag">Infrastructure</p>
+    <h2>Platform Choice</h2>
+    <p>Our platform choice is going to primarily consist of work done on the GHC machines. This is due to the availability we have as students and able to play around with different thread counts with these compression algorithms. Additionally, as we are trying to create the most parallel efficient algorithms we also plan to make use of the PSC machines to test and see how our algorithm runs with higher thread counts 16–128.</p>
+    <p>Also, a multicore CPU is also a better fit for this workload than a GPU. LZ compression involves irregular, backward-looking memory accesses (LZ77's sliding window) and dynamic dictionary lookups (LZW) — both of which map poorly to GPU architectures that require coalesced memory access patterns to perform well. Additionally, the sequential data dependencies inherent to both algorithms limit the degree of fine-grained parallelism available, making the overhead of GPU thread management difficult to justify.</p>
+    <div class="platform-grid">
+      <div class="platform-card">
+        <h3>GHC Machines</h3>
+        <p>Up to 8 cores. Primary development platform. Available as students to experiment with different thread counts.</p>
+      </div>
+      <div class="platform-card">
+        <h3>PSC Machines</h3>
+        <p>Up to 128 cores. Used to demonstrate how algorithms scale with significantly more threads and increased computing power.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Resources ── -->
+  <section>
+    <p class="section-tag">References</p>
+    <h2>Resources</h2>
+    <p>We plan to write this code from scratch while making use of helpful references. No additional resources beyond GHC and PSC should be needed. We anticipate potential issues with scaling on the PSC that will not be noticed on the GHC machines at 8 cores.</p>
+    <ul class="ref-list">
+      <li>
+        <span class="ref-label">LZ77</span>
+        <a href="https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wusp/fb98aa28-5cd7-407f-8869-a6cef1ff1ccb">
+          learn.microsoft.com — MS-WUSP LZ77 Specification
+        </a>
+      </li>
+      <li>
+        <span class="ref-label">LZW</span>
+        <a href="https://eng.libretexts.org/Bookshelves/Electrical_Engineering/Signal_Processing_and_Modeling/Information_and_Entropy_(Penfield)/03%3A_Compression/3.07%3A_Detail-_LZW_Compression/3.7.01%3A_LZW_Algorithm_Example_1">
+          eng.libretexts.org — LZW Algorithm Example
+        </a>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ── Schedule ── -->
+  <section>
+    <p class="section-tag">Timeline</p>
+    <h2>Schedule</h2>
+    <div class="timeline">
+
+      <div class="week">
+        <div class="week-date">Mar 30<br>Apr 4</div>
+        <div class="week-body">
+          <p>Working LZ77 and LZW sequential algorithms that yield an optimal compression ratio.</p>
+          <p>Important to be able to have a good sequential baseline to measure our efforts in increasing speedup.</p>
+          <p>Additionally create a good test set that comprises files of different information, highly repetitive, no repetition and of different sizes.</p>
+        </div>
+      </div>
+
+      <div class="week">
+        <div class="week-date">Apr 5<br>Apr 11</div>
+        <div class="week-body">
+          <p>Working compression algorithm for LZ77 that are able to achieve relatively high speedup on lower thread counts but are in the right direction in being able to get a good workload balance and scaling at higher thread counts.</p>
+          <p>As there are similarities between LZ77 and LZW we will primarily focus on LZ77 first as a lot of the ideas for increased performance should translate to the LZW method.</p>
+          <p>Keep up to date with changes and requirements in milestone for April 14.</p>
+        </div>
+      </div>
+
+      <div class="week">
+        <div class="week-date">Apr 12<br>Apr 18</div>
+        <div class="week-body">
+          <p>Have a LZ77 compression algorithm that has good scalability and good compression ratio with some small improvements.</p>
+          <p>Keep website up to date with milestone and changes made.</p>
+        </div>
+      </div>
+
+      <div class="week">
+        <div class="week-date">Apr 19<br>Apr 30</div>
+        <div class="week-body">
+          <p>Have a LZW compression algorithm that has good scalability and good compression ratio with some small improvements. Compare these two different algorithms that we've been working to find the best compression algorithm with lower thread counts, to higher, and memory usage.</p>
+          <p>Additionally, meet all other requirements for website.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="footer">
+    <p>15-418 · Parallel Computer Architecture and Programming · Carnegie Mellon University</p>
+  </div>
+
+</main>
 </body>
 </html>
