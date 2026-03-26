@@ -1,6 +1,12 @@
 # 15-418-LZ_Compression
 15-418 Final Project 
 
+Jack Woodson (jrwoodso)
+
+Alex Li (alexli3)
+
+
+
 # Summary:
 Will investigate how to parallelize the serial compression algorithms LZ77 and LZW. As we try to parallelize, we would also compare how much performance (compression ratio) we can retain while speeding up the computation. We will target the GHC machine, and extend to the PSC to test scalability on higher core counts. 
 
